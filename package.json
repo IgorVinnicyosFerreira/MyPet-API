@@ -7,6 +7,14 @@
     "dev": "tsx watch  --env-file=.env src/server.ts",
     "prepare": "husky"
   },
+  "lint-staged": {
+    "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+      "biome check --staged"
+    ],
+    "*.{ts,d.cts,d.mts,tsx}": [
+      "tsc --noEmit"
+    ]
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
