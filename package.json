@@ -5,14 +5,12 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch  --env-file=.env src/server.ts",
+    "typecheck": "tsc --noEmit --skipLibCheck",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
       "biome check --staged"
-    ],
-    "*.{ts,d.cts,d.mts,tsx}": [
-      "tsc --noEmit"
     ]
   },
   "keywords": [],
