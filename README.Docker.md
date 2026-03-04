@@ -17,6 +17,6 @@ Notes:
 ```bash
 # open a shell in the running app container
 docker compose exec app sh
-pnpm prisma migrate dev
+pnpm prisma migrate deploy
 pnpm dlx prisma generate
 ```

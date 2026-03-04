@@ -1,4 +1,4 @@
-.PHONY: help up build down logs ps app-shell db-shell install docker-install dev docker-dev migrate migrate-reset prisma-generate seed ps restart
+make .PHONY: help up build down logs ps app-shell db-shell install docker-install dev docker-dev migrate migrate-reset prisma-generate seed ps restart
 
 COMPOSE = docker compose
 APP = app
@@ -28,8 +28,11 @@ up: build
 build:
 	$(COMPOSE) build --no-cache
 
-down:
+remove:
 	$(COMPOSE) down -v
+
+stop:
+	$(COMPOSE) stop
 
 logs:
 	$(COMPOSE) logs -f
@@ -61,10 +64,13 @@ migrate:
 migrate-reset:
 	$(COMPOSE) exec $(APP) pnpm prisma migrate reset --force
 
+migrate-deploy:
+	$(COMPOSE) exec $(APP) pnpm prisma migrate deploy
+
 prisma-generate:
 	$(COMPOSE) exec $(APP) pnpm prisma generate
 
 seed:
 	$(COMPOSE) exec $(APP) pnpm prisma db seed
 
-restart: down up
+restart: stop up

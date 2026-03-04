@@ -1,7 +1,9 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod/v4-mini';
+import { makeUsersController } from './users.factory';
+import { UserSchema } from './users.schemas';
 
-const tutorsRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
+const usersRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
   fastify.route({
     method: 'GET',
     url: '/',
@@ -10,12 +12,10 @@ const tutorsRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
         name: z.optional(z.string().check(z.minLength(3))),
       }),
       response: {
-        200: z.string(),
+        200: z.array(UserSchema),
       },
     },
-    handler: (req, reply) => {
-      reply.status(200).send('List tutors');
-    },
+    handler: (req, reply) => makeUsersController().list(req, reply),
   });
 };
-export { tutorsRoutes };
+export { usersRoutes };

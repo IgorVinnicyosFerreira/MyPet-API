@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { v1Routes } from './v1';
+import { usersRoutes } from '@/modules/v1/users/users.routes';
 
 const apiRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
   fastify.get(
@@ -14,8 +14,8 @@ const apiRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
     },
   );
 
-  fastify.register(v1Routes, {
-    prefix: '/v1',
+  fastify.register(usersRoutes, {
+    prefix: '/v1/users',
   });
 };
 
