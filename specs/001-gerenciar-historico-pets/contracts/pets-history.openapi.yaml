@@ -1,0 +1,1211 @@
+openapi: 3.1.0
+info:
+  title: MyPet API - Pets History and Care
+  version: 1.0.0
+  description: Contracts for pet history, medication routine, care sharing and digital wallet.
+servers:
+  - url: http://localhost:3333
+security:
+  - bearerAuth: []
+paths:
+  /v1/auth/register:
+    post:
+      summary: Register user with email and password
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRegisterInput'
+      responses:
+        '201':
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAuth'
+        '409':
+          $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /v1/auth/login:
+    post:
+      summary: Authenticate with email and password
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginInput'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/pets:
+    post:
+      summary: Create pet
+      tags: [Pets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetCreateInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    get:
+      summary: List pets by responsible user
+      tags: [Pets]
+      parameters:
+        - in: query
+          name: role
+          required: false
+          schema:
+            type: string
+            enum: [PRIMARY_TUTOR, CO_TUTOR, CAREGIVER]
+      responses:
+        '200':
+          description: Pets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/pets/{petId}/feedings:
+    post:
+      summary: Register feeding change/history
+      tags: [Feeding]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedingRecordInput'
+      responses:
+        '201':
+          description: Feeding record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedingRecord'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/weights:
+    post:
+      summary: Register pet weight
+      tags: [Weight]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeightRecordInput'
+      responses:
+        '201':
+          description: Weight record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightRecord'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/consultations:
+    post:
+      summary: Register clinical consultation
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationInput'
+      responses:
+        '201':
+          description: Consultation record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/history/{recordType}/{recordId}:
+    patch:
+      summary: Update a clinical record using optimistic locking
+      description: Allowed for PRIMARY_TUTOR and CO_TUTOR; CAREGIVER must receive 403 for this endpoint.
+      tags: [History]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+        - in: path
+          name: recordType
+          required: true
+          schema:
+            type: string
+            enum: [FEEDING, WEIGHT, CONSULTATION, EXAM, VACCINATION, SANITARY]
+        - in: path
+          name: recordId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicalRecordUpdateInput'
+      responses:
+        '200':
+          description: Clinical record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicalRecord'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /v1/files/uploads:
+    post:
+      summary: Upload exam/vaccination attachment
+      tags: [Files]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [petId, domain, file]
+              properties:
+                petId:
+                  type: string
+                  format: uuid
+                domain:
+                  type: string
+                  enum: [EXAM, VACCINATION]
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredFile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /v1/pets/{petId}/exams:
+    post:
+      summary: Register exam record
+      tags: [Exams]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamInput'
+      responses:
+        '201':
+          description: Exam record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/vaccinations:
+    post:
+      summary: Register vaccination record
+      tags: [Vaccinations]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaccinationInput'
+      responses:
+        '201':
+          description: Vaccination record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vaccination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/sanitary-records:
+    post:
+      summary: Register dewormer or antiparasitic event
+      tags: [Sanitary]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SanitaryRecordInput'
+      responses:
+        '201':
+          description: Sanitary record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SanitaryRecord'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /v1/prescriptions:
+    post:
+      summary: Create medication prescription
+      tags: [Prescriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionInput'
+      responses:
+        '201':
+          description: Prescription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /v1/prescriptions/{prescriptionId}:
+    patch:
+      summary: Update prescription using optimistic locking
+      tags: [Prescriptions]
+      parameters:
+        - in: path
+          name: prescriptionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionUpdateInput'
+      responses:
+        '200':
+          description: Prescription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /v1/prescriptions/{prescriptionId}/dose-records:
+    post:
+      summary: Register administered dose and recalculate next dose only for non-retroactive events
+      tags: [Prescriptions]
+      parameters:
+        - in: path
+          name: prescriptionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoseRecordInput'
+      responses:
+        '201':
+          description: Dose record created and prescription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoseRecord'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /v1/pets/{petId}/medication-agenda:
+    get:
+      summary: List daily next medication times for widgets
+      tags: [Agenda]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Agenda sorted by next dose time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [petId, date, items]
+                properties:
+                  petId:
+                    type: string
+                    format: uuid
+                  date:
+                    type: string
+                    format: date
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgendaItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/pets/{petId}/care-relations:
+    post:
+      summary: Share pet care with co-tutor or caregiver
+      tags: [Care Relations]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CareRelationInput'
+      responses:
+        '201':
+          description: Relation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRelation'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /v1/pets/{petId}/digital-wallet:
+    get:
+      summary: Generate digital pet wallet with sanitary history (structured JSON only)
+      tags: [Digital Wallet]
+      parameters:
+        - $ref: '#/components/parameters/PetIdParam'
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Digital wallet generated as structured JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigitalWallet'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PetIdParam:
+      in: path
+      name: petId
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationError:
+      description: Validation or business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictError:
+      description: Resource version conflict (optimistic locking)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    AuthRegisterInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+    AuthLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+    UserAuth:
+      type: object
+      required: [id, name, email, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AuthTokenResponse:
+      type: object
+      required: [token, expiresIn]
+      properties:
+        token:
+          type: string
+        expiresIn:
+          type: integer
+          example: 3600
+        user:
+          $ref: '#/components/schemas/UserAuth'
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, traceId]
+          properties:
+            code:
+              type: string
+              example: RESOURCE_NOT_FOUND
+            message:
+              type: string
+              example: Pet not found
+            details:
+              type: object
+              additionalProperties: true
+            traceId:
+              type: string
+              example: req-123
+    PetCreateInput:
+      type: object
+      required: [name, species]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        species:
+          type: string
+          minLength: 1
+          maxLength: 60
+        breed:
+          type: string
+          maxLength: 80
+        birthDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          maxLength: 2000
+    Pet:
+      type: object
+      required: [id, name, species, primaryTutorId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        primaryTutorId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    FeedingRecordInput:
+      type: object
+      required: [type, description, startsAt]
+      properties:
+        type:
+          type: string
+          enum: [FEED, NATURAL, MIXED, OTHER]
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        startsAt:
+          type: string
+          format: date-time
+    FeedingRecord:
+      type: object
+      required: [id, petId, type, description, startsAt, isActive, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [FEED, NATURAL, MIXED, OTHER]
+        description:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+    WeightRecordInput:
+      type: object
+      required: [weightGrams, measuredAt]
+      properties:
+        weightGrams:
+          type: integer
+          minimum: 1
+        measuredAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          maxLength: 500
+    WeightRecord:
+      type: object
+      required: [id, petId, weightGrams, measuredAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        weightGrams:
+          type: integer
+        measuredAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    ConsultationInput:
+      type: object
+      required: [occurredAt]
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        clinicName:
+          type: string
+          maxLength: 120
+        vetName:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+          maxLength: 5000
+    Consultation:
+      type: object
+      required: [id, petId, occurredAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        clinicName:
+          type: string
+        vetName:
+          type: string
+        notes:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    ClinicalRecordUpdateInput:
+      type: object
+      required: [version, payload]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        payload:
+          type: object
+          additionalProperties: true
+    ClinicalRecord:
+      type: object
+      required: [petId, recordType, recordId, version, payload]
+      properties:
+        petId:
+          type: string
+          format: uuid
+        recordType:
+          type: string
+          enum: [FEEDING, WEIGHT, CONSULTATION, EXAM, VACCINATION, SANITARY]
+        recordId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        payload:
+          type: object
+          additionalProperties: true
+    StoredFile:
+      type: object
+      required: [id, petId, domain, provider, relativePath, mimeType, sizeBytes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          enum: [EXAM, VACCINATION]
+        provider:
+          type: string
+          enum: [LOCAL]
+        relativePath:
+          type: string
+        mimeType:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+        sizeBytes:
+          type: integer
+    ExamInput:
+      type: object
+      required: [type, occurredAt, fileIds]
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 80
+        occurredAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          maxLength: 5000
+        fileIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+    Exam:
+      type: object
+      required: [id, petId, type, occurredAt, fileIds, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        fileIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          minimum: 1
+    VaccinationInput:
+      type: object
+      required: [vaccineName, appliedAt, vetName, reminderEnabled]
+      properties:
+        vaccineName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        appliedAt:
+          type: string
+          format: date-time
+        vetName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        nextDoseAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+        nextDoseReminderAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          maxLength: 5000
+        fileId:
+          type: string
+          format: uuid
+    Vaccination:
+      type: object
+      required: [id, petId, vaccineName, appliedAt, vetName, reminderEnabled, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        vaccineName:
+          type: string
+        appliedAt:
+          type: string
+          format: date-time
+        vetName:
+          type: string
+        nextDoseAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+        nextDoseReminderAt:
+          type: string
+          format: date-time
+        fileId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+    SanitaryRecordInput:
+      type: object
+      required: [category, productName, appliedAt, reminderEnabled]
+      properties:
+        category:
+          type: string
+          enum: [DEWORMER, ANTIPARASITIC]
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        appliedAt:
+          type: string
+          format: date-time
+        nextApplicationAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 1000
+    SanitaryRecord:
+      type: object
+      required: [id, petId, category, productName, appliedAt, reminderEnabled, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        category:
+          type: string
+          enum: [DEWORMER, ANTIPARASITIC]
+        productName:
+          type: string
+        appliedAt:
+          type: string
+          format: date-time
+        nextApplicationAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+    Medication:
+      type: object
+      required: [id, name, catalogScope]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        catalogScope:
+          type: string
+          enum: [GLOBAL, TUTOR]
+        ownerUserId:
+          type: string
+          format: uuid
+    PrescriptionInput:
+      type: object
+      required:
+        [petId, dosageValue, dosageUnit, frequencyValue, frequencyUnit, startsAt]
+      oneOf:
+        - required: [medicationId]
+        - required: [medicationName]
+      properties:
+        petId:
+          type: string
+          format: uuid
+        medicationId:
+          type: string
+          format: uuid
+        medicationName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        medicationDescription:
+          type: string
+          maxLength: 500
+        dosageValue:
+          type: number
+          minimum: 0.01
+        dosageUnit:
+          type: string
+          enum: [TABLET_FRACTION, DROPS, ML, UNIT, OTHER]
+        dosageOtherDescription:
+          type: string
+          maxLength: 120
+        frequencyValue:
+          type: integer
+          minimum: 1
+        frequencyUnit:
+          type: string
+          enum: [HOURS, DAYS, WEEKS]
+        startsAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+          default: true
+    PrescriptionUpdateInput:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        reminderEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED, COMPLETED, CANCELED]
+        startsAt:
+          type: string
+          format: date-time
+        frequencyValue:
+          type: integer
+          minimum: 1
+        frequencyUnit:
+          type: string
+          enum: [HOURS, DAYS, WEEKS]
+    Prescription:
+      type: object
+      required:
+        [
+          id,
+          petId,
+          medicationId,
+          dosageValue,
+          dosageUnit,
+          frequencyValue,
+          frequencyUnit,
+          startsAt,
+          nextDoseAt,
+          status,
+          version
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        medicationId:
+          type: string
+          format: uuid
+        medication:
+          $ref: '#/components/schemas/Medication'
+        dosageValue:
+          type: number
+        dosageUnit:
+          type: string
+          enum: [TABLET_FRACTION, DROPS, ML, UNIT, OTHER]
+        dosageOtherDescription:
+          type: string
+        frequencyValue:
+          type: integer
+        frequencyUnit:
+          type: string
+          enum: [HOURS, DAYS, WEEKS]
+        startsAt:
+          type: string
+          format: date-time
+        nextDoseAt:
+          type: string
+          format: date-time
+        reminderEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED, COMPLETED, CANCELED]
+        version:
+          type: integer
+          minimum: 1
+    DoseRecordInput:
+      type: object
+      required: [takenAt, prescriptionVersion]
+      properties:
+        takenAt:
+          type: string
+          format: date-time
+        prescriptionVersion:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+          maxLength: 1000
+    DoseRecord:
+      type: object
+      required: [id, prescriptionId, petId, takenAt, status, isRetroactive, nextDoseRecalculated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        prescriptionId:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        scheduledFor:
+          type: string
+          format: date-time
+        takenAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [TAKEN, LATE, SKIPPED]
+        isRetroactive:
+          type: boolean
+        nextDoseRecalculated:
+          type: boolean
+        notes:
+          type: string
+    AgendaItem:
+      type: object
+      required: [prescriptionId, medicationName, nextDoseAt, dosageLabel]
+      properties:
+        prescriptionId:
+          type: string
+          format: uuid
+        medicationName:
+          type: string
+        nextDoseAt:
+          type: string
+          format: date-time
+        dosageLabel:
+          type: string
+    CareRelationInput:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [CO_TUTOR, CAREGIVER]
+    CareRelation:
+      type: object
+      required: [id, petId, userId, role, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [PRIMARY_TUTOR, CO_TUTOR, CAREGIVER]
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, REVOKED]
+    DigitalWallet:
+      type: object
+      required: [pet, generatedAt, vaccinations, sanitaryRecords]
+      properties:
+        pet:
+          $ref: '#/components/schemas/Pet'
+        generatedAt:
+          type: string
+          format: date-time
+        vaccinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vaccination'
+        sanitaryRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/SanitaryRecord'
