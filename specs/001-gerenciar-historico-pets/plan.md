@@ -14,7 +14,7 @@ API contracts remain typed with Zod and documented automatically at `/docs` usin
 **Language/Version**: Node.js + TypeScript (runtime), Bun 1.x (automated test runner)
 **Primary Dependencies**: Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, `@fastify/swagger`, `@scalar/fastify-api-reference`
 **Storage**: PostgreSQL (via Prisma ORM) + local file storage in `/Volumes/SSD Externo/Projects/MyPet/storage` behind `StorageProvider` interface
-**Testing**: Bun (`bun test --coverage`) for unit and integration tests, plus typecheck/lint gates
+**Testing**: Bun (`make test-coverage`) for unit and integration tests, plus typecheck/lint gates
 **Target Platform**: Docker Compose service running API backend
 **Project Type**: Versioned REST API (`/v1/...`, `/v2/...` for breaking changes)
 **Performance Goals**: p95 <= 250ms for read endpoints (`GET` list/history), p95 <= 350ms for write endpoints (`POST/PATCH`) excluding upload transfer time, and agenda endpoint supporting up to 200 active prescriptions per pet per day

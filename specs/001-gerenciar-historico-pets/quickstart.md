@@ -81,7 +81,7 @@ Tests with Bun (unit + integration, minimum 80% coverage for module):
 
 ```bash
 cd /Volumes/SSD Externo/Projects/MyPet
-bun test --coverage
+make test-coverage
 ```
 
 ## 8) Contract sanity checks
@@ -103,4 +103,73 @@ bun test --coverage
     "traceId": "req-123"
   }
 }
+```
+
+## Task references
+
+- Setup phase: T001-T007
+- Foundational phase: T008-T017
+- User Story 1: T018-T035
+- User Story 2: T036-T048
+- User Story 3: T049-T058
+- Polish: T059-T065
+
+## API usage examples
+
+Register:
+
+```bash
+curl -X POST http://localhost:3333/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Igor Ferreira",
+    "email": "igor@example.com",
+    "password": "12345678"
+  }'
+```
+
+Login:
+
+```bash
+curl -X POST http://localhost:3333/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "igor@example.com",
+    "password": "12345678"
+  }'
+```
+
+Create pet:
+
+```bash
+curl -X POST http://localhost:3333/v1/pets \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "name": "Luna",
+    "species": "Canine",
+    "breed": "SRD"
+  }'
+```
+
+Upload attachment (base64 payload):
+
+```bash
+curl -X POST http://localhost:3333/v1/files/uploads \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "petId": "<PET_ID>",
+    "domain": "EXAM",
+    "originalName": "hemograma.pdf",
+    "mimeType": "application/pdf",
+    "contentBase64": "<BASE64_CONTENT>"
+  }'
+```
+
+Medication agenda:
+
+```bash
+curl -X GET "http://localhost:3333/v1/pets/<PET_ID>/medication-agenda?date=2026-03-13" \
+  -H "Authorization: Bearer <TOKEN>"
 ```

@@ -211,25 +211,14 @@ paths:
           $ref: '#/components/responses/ValidationError'
   /v1/files/uploads:
     post:
-      summary: Upload exam/vaccination attachment
+      summary: Upload exam/vaccination attachment (JSON base64 payload)
       tags: [Files]
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              type: object
-              required: [petId, domain, file]
-              properties:
-                petId:
-                  type: string
-                  format: uuid
-                domain:
-                  type: string
-                  enum: [EXAM, VACCINATION]
-                file:
-                  type: string
-                  format: binary
+              $ref: '#/components/schemas/FileUploadInput'
       responses:
         '201':
           description: File uploaded
@@ -821,6 +810,25 @@ components:
           enum: [application/pdf, image/jpeg, image/png]
         sizeBytes:
           type: integer
+    FileUploadInput:
+      type: object
+      required: [petId, domain, originalName, mimeType, contentBase64]
+      properties:
+        petId:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          enum: [EXAM, VACCINATION]
+        originalName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mimeType:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+        contentBase64:
+          type: string
     ExamInput:
       type: object
       required: [type, occurredAt, fileIds]

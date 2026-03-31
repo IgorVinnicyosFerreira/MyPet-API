@@ -13,9 +13,313 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Sex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum CareRole {
+  PRIMARY_TUTOR
+  CO_TUTOR
+  CAREGIVER
+}
+
+enum CareStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum FeedingType {
+  FEED
+  NATURAL
+  MIXED
+  OTHER
+}
+
+enum FileDomain {
+  EXAM
+  VACCINATION
+}
+
+enum StorageProvider {
+  LOCAL
+}
+
+enum SanitaryCategory {
+  DEWORMER
+  ANTIPARASITIC
+}
+
+enum CatalogScope {
+  GLOBAL
+  TUTOR
+}
+
+enum DosageUnit {
+  TABLET_FRACTION
+  DROPS
+  ML
+  UNIT
+  OTHER
+}
+
+enum FrequencyUnit {
+  HOURS
+  DAYS
+  WEEKS
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum DoseStatus {
+  TAKEN
+  LATE
+  SKIPPED
+}
+
 model Users {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  Pets            Pets[]          @relation("PrimaryTutorPets")
+  CareRelations   CareRelations[] @relation("CareRelationUser")
+  InvitedRelations CareRelations[] @relation("CareRelationInviter")
+}
+
+model Pets {
+  id             String    @id @default(uuid())
+  name           String
+  species        String
+  breed          String?
+  birthDate      DateTime?
+  sex            Sex?
+  notes          String?
+  primaryTutorId String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  primaryTutor    Users             @relation("PrimaryTutorPets", fields: [primaryTutorId], references: [id], onDelete: Restrict)
+  FeedingRecords  FeedingRecords[]
+  WeightRecords   WeightRecords[]
+  Consultations   Consultations[]
+  Exams           Exams[]
+  Vaccinations    Vaccinations[]
+  SanitaryRecords SanitaryRecords[]
+  StoredFiles     StoredFiles[]
+  CareRelations   CareRelations[]
+  Prescriptions   Prescriptions[]
+  DoseRecords     DoseRecords[]
+}
+
+model CareRelations {
+  id              String     @id @default(uuid())
+  petId           String
+  userId          String
+  role            CareRole
+  status          CareStatus
+  invitedByUserId String
+  revokedAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  pet           Pets  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user          Users @relation("CareRelationUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedByUser Users @relation("CareRelationInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([petId, userId])
+}
+
+model FeedingRecords {
+  id              String      @id @default(uuid())
+  petId           String
+  type            FeedingType
+  description     String
+  startsAt        DateTime
+  endsAt          DateTime?
+  isActive        Boolean     @default(true)
+  createdByUserId String
+  version         Int         @default(1)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  pet Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model WeightRecords {
+  id              String   @id @default(uuid())
+  petId           String
+  weightGrams     Int
+  measuredAt      DateTime
+  note            String?
+  createdByUserId String
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pet Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Consultations {
+  id              String   @id @default(uuid())
+  petId           String
+  occurredAt      DateTime
+  clinicName      String?
+  vetName         String?
+  notes           String?
+  createdByUserId String
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pet Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model StoredFiles {
+  id              String          @id @default(uuid())
+  petId           String
+  domain          FileDomain
+  provider        StorageProvider @default(LOCAL)
+  relativePath    String
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  checksum        String?
+  uploadedByUserId String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  pet          Pets           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  examBindings ExamAttachments[]
+  Vaccinations Vaccinations[]
+}
+
+model Exams {
+  id              String            @id @default(uuid())
+  petId           String
+  type            String
+  occurredAt      DateTime
+  notes           String?
+  createdByUserId String
+  version         Int               @default(1)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  pet         Pets              @relation(fields: [petId], references: [id], onDelete: Cascade)
+  attachments ExamAttachments[]
+}
+
+model ExamAttachments {
+  id           String   @id @default(uuid())
+  examId       String
+  storedFileId String
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  exam       Exams       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  storedFile StoredFiles @relation(fields: [storedFileId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, storedFileId])
+}
+
+model Vaccinations {
+  id                 String   @id @default(uuid())
+  petId              String
+  vaccineName        String
+  appliedAt          DateTime
+  vetName            String
+  nextDoseAt         DateTime?
+  reminderEnabled    Boolean
+  nextDoseReminderAt DateTime?
+  notes              String?
+  fileId             String?
+  createdByUserId    String
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  pet  Pets         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  file StoredFiles? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+}
+
+model SanitaryRecords {
+  id                String           @id @default(uuid())
+  petId             String
+  category          SanitaryCategory
+  productName       String
+  appliedAt         DateTime
+  nextApplicationAt DateTime?
+  reminderEnabled   Boolean
+  notes             String?
+  createdByUserId   String
+  version           Int              @default(1)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  pet Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Medications {
+  id           String       @id @default(uuid())
+  name         String
+  description  String?
+  catalogScope CatalogScope
+  ownerUserId  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  Prescriptions Prescriptions[]
+
+  @@unique([name, catalogScope, ownerUserId])
+}
+
+model Prescriptions {
+  id                    String             @id @default(uuid())
+  petId                 String
+  medicationId          String
+  dosageValue           Decimal            @db.Decimal(10, 2)
+  dosageUnit            DosageUnit
+  dosageOtherDescription String?
+  frequencyValue        Int
+  frequencyUnit         FrequencyUnit
+  startsAt              DateTime
+  nextDoseAt            DateTime
+  reminderEnabled       Boolean            @default(true)
+  status                PrescriptionStatus @default(ACTIVE)
+  createdByUserId       String
+  version               Int                @default(1)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  pet        Pets         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  medication Medications  @relation(fields: [medicationId], references: [id], onDelete: Restrict)
+  doseRecords DoseRecords[]
+}
+
+model DoseRecords {
+  id              String     @id @default(uuid())
+  prescriptionId  String
+  petId           String
+  scheduledFor    DateTime
+  takenAt         DateTime
+  status          DoseStatus
+  isRetroactive   Boolean    @default(false)
+  notes           String?
+  createdByUserId String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  prescription Prescriptions @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  pet          Pets          @relation(fields: [petId], references: [id], onDelete: Cascade)
 }

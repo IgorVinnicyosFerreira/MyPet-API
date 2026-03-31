@@ -23,6 +23,8 @@ Comandos principais:
 - `make logs`
 - `make migrate`
 - `make prisma-generate`
+- `make test`
+- `make test-coverage`
 - `make typecheck` (quando existir no Makefile; caso nao exista, usar `pnpm typecheck`)
 
 ## 3) Arquitetura obrigatoria

@@ -96,7 +96,7 @@ regressions in API and domain logic.
 ## Development Workflow and Delivery Standards
 
 - Official workflow commands MUST prioritize the `Makefile` (`make up`,
-  `make docker-dev`, `make logs`, `make migrate`, `make prisma-generate`,
+  `make docker-dev`, `make logs`, `make migrate`, `make prisma-generate`, `make test`, `make test-coverage`
   `make typecheck` when available).
 - When `make typecheck` is unavailable, `pnpm typecheck` MUST be used.
 - Migrations MUST use explicit descriptive names.

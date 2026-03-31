@@ -54,7 +54,7 @@ This document resolves all `NEEDS CLARIFICATION` items from the implementation p
 
 ## 9) Automated tests with Bun
 
-- Decision: Use Bun as the test runner (`bun test --coverage`) for unit/integration test suites while keeping runtime on Node.js.
+- Decision: Use Bun as the test runner (`make test-coverage`) for unit/integration test suites while keeping runtime on Node.js.
 - Rationale: Meets explicit user requirement and keeps implementation simple (single runner, native TS support).
 - Alternatives considered: Vitest/Jest adoption (rejected because requirement asks Bun and goal is minimal libraries).
 

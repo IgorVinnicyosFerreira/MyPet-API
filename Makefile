@@ -1,4 +1,4 @@
-make .PHONY: help up build down logs ps app-shell db-shell install docker-install dev docker-dev migrate migrate-reset prisma-generate seed ps restart
+.PHONY: help up build down remove stop logs ps app-shell db-shell install docker-install dev docker-dev migrate migrate-reset migrate-deploy prisma-generate seed restart typecheck test test-unit test-integration test-coverage test-coverage-all
 
 COMPOSE = docker compose
 APP = app
@@ -21,6 +21,9 @@ help:
 	@echo "  migrate-reset - Reset prisma migrations (development only)"
 	@echo "  prisma-generate- Run prisma generate in container"
 	@echo "  seed          - Run prisma seed in container"
+	@echo "  test          - Run unit tests (no database dependency)"
+	@echo "  test-integration - Run integration tests (requires database)"
+	@echo "  test-coverage - Run unit tests with coverage"
 
 up: build
 	$(COMPOSE) up -d
@@ -58,6 +61,14 @@ dev:
 docker-dev:
 	$(COMPOSE) up --build
 
+typecheck:
+	@if grep -q '"typecheck"' package.json; then \
+		pnpm typecheck; \
+	else \
+		echo "typecheck script not found in package.json"; \
+		exit 1; \
+	fi
+
 migrate:
 	$(COMPOSE) exec $(APP) pnpm prisma migrate dev
 
@@ -74,3 +85,18 @@ seed:
 	$(COMPOSE) exec $(APP) pnpm prisma db seed
 
 restart: stop up
+
+test:
+	$(COMPOSE) run --rm --no-deps $(APP) bun test tests/unit
+
+test-coverage:
+	$(COMPOSE) run --rm --no-deps $(APP) bun test tests/unit --coverage
+
+test-unit:
+	$(COMPOSE) run --rm --no-deps $(APP) bun test tests/unit
+
+test-integration:
+	$(COMPOSE) exec $(APP) bun test tests/integration
+
+test-coverage-all:
+	$(COMPOSE) exec $(APP) bun test --coverage
