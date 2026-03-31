@@ -1,47 +1,9 @@
-import { fastifyCors } from '@fastify/cors';
-import { fastifySwagger } from '@fastify/swagger';
-import ScalarApiReference from '@scalar/fastify-api-reference';
-import { fastify } from 'fastify';
-import {
-  jsonSchemaTransform,
-  serializerCompiler,
-  validatorCompiler,
-  type ZodTypeProvider,
-} from 'fastify-type-provider-zod';
-
-import { apiRoutes } from './routes';
-
-const app = fastify().withTypeProvider<ZodTypeProvider>();
-
-app.setValidatorCompiler(validatorCompiler);
-app.setSerializerCompiler(serializerCompiler);
-
-app.register(fastifyCors, {
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  credentials: true,
-});
-
-app.register(fastifySwagger, {
-  openapi: {
-    info: {
-      title: 'MyPet API',
-      description: 'API to monitor your pet`s health',
-      version: '1.0.0',
-    },
-  },
-  transform: jsonSchemaTransform,
-});
-
-app.register(ScalarApiReference, {
-  routePrefix: '/docs',
-});
-
-app.register(apiRoutes);
+import { buildApp } from '@/app';
 
 const PORT = Number(process.env.PORT || 3333);
 
 async function run() {
+  const app = buildApp();
   await app.ready();
 
   await app
@@ -55,4 +17,6 @@ async function run() {
     });
 }
 
-run();
+if (process.env.NODE_ENV !== 'test') {
+  run();
+}

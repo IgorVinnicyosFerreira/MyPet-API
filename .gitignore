@@ -1,5 +1,20 @@
-node_modules
-# Keep environment variables out of version control
-.env
+node_modules/
+dist/
+build/
+coverage/
+generated/prisma/
+*.log
 
-/generated/prisma
+# Keep environment variables out of version control
+.env*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# AI tooling
+.codex/

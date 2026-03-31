@@ -3,7 +3,7 @@ import { z } from 'zod/v4-mini';
 import { makeUsersController } from './users.factory';
 import { UserSchema } from './users.schemas';
 
-const usersRoutes: FastifyPluginAsyncZod = async (fastify, opts) => {
+const usersRoutes: FastifyPluginAsyncZod = async (fastify, _opts) => {
   fastify.route({
     method: 'GET',
     url: '/',

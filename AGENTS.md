@@ -23,6 +23,8 @@ Comandos principais:
 - `make logs`
 - `make migrate`
 - `make prisma-generate`
+- `make test`
+- `make test-coverage`
 - `make typecheck` (quando existir no Makefile; caso nao exista, usar `pnpm typecheck`)
 
 ## 3) Arquitetura obrigatoria
@@ -173,3 +175,10 @@ Agent pode seguir sem confirmacao previa para:
 - criar novos modulos seguindo padrao vigente;
 - criar novos arquivos de schema/controller/service/repository/factory;
 - criar testes e refactors sem breaking change de contrato.
+
+## Active Technologies
+- Node.js + TypeScript (runtime), Bun 1.x (automated test runner) + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, `@fastify/swagger`, `@scalar/fastify-api-reference` (001-gerenciar-historico-pets)
+- PostgreSQL (via Prisma ORM) + local file storage in `/Volumes/SSD Externo/Projects/MyPet/storage` behind `StorageProvider` interface (001-gerenciar-historico-pets)
+
+## Recent Changes
+- 001-gerenciar-historico-pets: Added Node.js + TypeScript (runtime), Bun 1.x (automated test runner) + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, `@fastify/swagger`, `@scalar/fastify-api-reference`

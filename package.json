@@ -6,6 +6,13 @@
   "scripts": {
     "dev": "tsx watch  --env-file=.env src/server.ts",
     "typecheck": "tsc --noEmit --skipLibCheck",
+    "lint": "pnpm biome check .",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:all": "bun test",
+    "test:coverage": "bun test tests/unit --coverage",
+    "test:coverage:all": "bun test --coverage",
     "prepare": "husky"
   },
   "lint-staged": {
