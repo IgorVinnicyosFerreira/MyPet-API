@@ -22,3 +22,8 @@ export type AuthTokenResponse = {
   expiresIn: number;
   user: AuthUser;
 };
+
+export type AuthRegisterResponse = AuthUser & {
+  token: string;
+  expiresIn: number;
+};

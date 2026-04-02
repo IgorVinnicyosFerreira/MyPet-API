@@ -1,0 +1,260 @@
+openapi: 3.1.0
+info:
+  title: MyPet API - Secure User Management
+  version: 1.0.0
+  description: Contracts for user register auto-authentication and secure user-management endpoints.
+servers:
+  - url: http://localhost:3333
+security:
+  - bearerAuth: []
+paths:
+  /v1/auth/register:
+    post:
+      summary: Register user and issue authentication token immediately
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRegisterInput'
+      responses:
+        '201':
+          description: User registered and authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /v1/users/{userId}:
+    get:
+      summary: Get user by id (authenticated)
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      summary: Update user data (self or super admin)
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateInput'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+    delete:
+      summary: Delete user permanently (super admin only)
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '204':
+          description: User deleted with hard delete
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserIdParam:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    AuthRegisterInput:
+      type: object
+      required: [name, email, password]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          minLength: 5
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+
+    UserResponse:
+      type: object
+      required: [id, name, email, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AuthRegisterResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResponse'
+        - type: object
+          required: [token, expiresIn]
+          additionalProperties: false
+          properties:
+            token:
+              type: string
+            expiresIn:
+              type: integer
+              minimum: 1
+
+    UserUpdateInput:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          minLength: 5
+          maxLength: 254
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, details, traceId]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+                - BAD_REQUEST
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - RESOURCE_NOT_FOUND
+                - CONFLICT
+                - UNPROCESSABLE_ENTITY
+                - TOO_MANY_REQUESTS
+                - INTERNAL_SERVER_ERROR
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+            traceId:
+              type: string
+
+  responses:
+    BadRequestError:
+      description: Invalid request payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    UnauthorizedError:
+      description: Missing, invalid, or expired authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    ForbiddenError:
+      description: Authenticated user has no permission for target operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    NotFoundError:
+      description: Target user was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    ConflictError:
+      description: Email uniqueness or state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    UnprocessableEntityError:
+      description: Domain validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    InternalServerError:
+      description: Unexpected internal failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

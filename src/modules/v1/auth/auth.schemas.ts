@@ -25,8 +25,19 @@ const authTokenResponseSchema = z.object({
   user: authUserSchema,
 });
 
+const authRegisterResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  token: z.string(),
+  expiresIn: z.number().check(z.gt(0)),
+});
+
 export {
   authLoginBodySchema,
+  authRegisterResponseSchema,
   authRegisterBodySchema,
   authTokenResponseSchema,
   authUserSchema,

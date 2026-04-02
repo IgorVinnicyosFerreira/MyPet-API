@@ -3,8 +3,8 @@ import { makeAuthController } from './auth.factory';
 import {
   authLoginBodySchema,
   authRegisterBodySchema,
+  authRegisterResponseSchema,
   authTokenResponseSchema,
-  authUserSchema,
 } from './auth.schemas';
 
 const authRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -14,7 +14,7 @@ const authRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         body: authRegisterBodySchema,
         response: {
-          201: authUserSchema,
+          201: authRegisterResponseSchema,
         },
       },
     },
