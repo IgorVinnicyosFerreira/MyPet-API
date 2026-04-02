@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 export type JwtPayload = {
   sub: string;
   email: string;
-  role?: string;
+  role?: 'USER' | 'SUPER_ADMIN' | (string & {});
   iat?: number;
   exp?: number;
 };

@@ -10,12 +10,31 @@ export class PrismaAuthRepository implements IAuthRepository {
     });
   }
 
+  async findAuthContextById(userId: string) {
+    return this.prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        isSuperAdmin: true,
+      },
+    });
+  }
+
   async create(input: { name: string; email: string; passwordHash: string }) {
     return this.prisma.users.create({
       data: {
         name: input.name,
         email: input.email,
         passwordHash: input.passwordHash,
+      },
+    });
+  }
+
+  async deleteById(userId: string) {
+    await this.prisma.users.deleteMany({
+      where: {
+        id: userId,
       },
     });
   }

@@ -4,13 +4,19 @@ import { HttpError } from '@/lib/http/error-handler';
 import type {
   AuthLoginInput,
   AuthRegisterInput,
+  AuthRegisterResponse,
   AuthTokenResponse,
   AuthUser,
 } from './auth.types';
 import type { IAuthRepository } from './repositories/auth-interfaces.repository';
 
 export class AuthService {
-  constructor(private readonly repository: IAuthRepository) {}
+  constructor(
+    private readonly repository: IAuthRepository,
+    private readonly dependencies: {
+      signToken?: typeof signJwt;
+    } = {},
+  ) {}
 
   private mapAuthUser(user: {
     id: string;
@@ -28,7 +34,7 @@ export class AuthService {
     };
   }
 
-  async register(input: AuthRegisterInput): Promise<AuthUser> {
+  async register(input: AuthRegisterInput): Promise<AuthRegisterResponse> {
     const existingUser = await this.repository.findByEmail(input.email);
 
     if (existingUser) {
@@ -42,7 +48,34 @@ export class AuthService {
       passwordHash,
     });
 
-    return this.mapAuthUser(user);
+    const expiresIn = 60 * 60;
+    const authUser = this.mapAuthUser(user);
+    const signToken = this.dependencies.signToken || signJwt;
+
+    try {
+      return {
+        ...authUser,
+        token: signToken(
+          {
+            sub: user.id,
+            email: user.email,
+          },
+          expiresIn,
+        ),
+        expiresIn,
+      };
+    } catch {
+      try {
+        await this.repository.deleteById(user.id);
+      } catch {
+        // Best-effort compensation: keep stable client error even if cleanup fails.
+      }
+      throw new HttpError(
+        500,
+        'INTERNAL_SERVER_ERROR',
+        'Failed to issue authentication token',
+      );
+    }
   }
 
   async login(input: AuthLoginInput): Promise<AuthTokenResponse> {
