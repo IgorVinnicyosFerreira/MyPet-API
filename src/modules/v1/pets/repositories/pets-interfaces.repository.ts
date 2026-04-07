@@ -5,6 +5,7 @@ import type {
   FeedingRecordInput,
   Pet,
   PetCreateInput,
+  PetWithHealthSummary,
   SanitaryRecordInput,
   VaccinationInput,
   WeightRecordInput,
@@ -17,6 +18,8 @@ export interface IPetsRepository {
   listByResponsibleUser(userId: string): Promise<Pet[]>;
   findPetById(petId: string): Promise<Pet | null>;
   resolveUserRoleForPet(petId: string, userId: string): Promise<PetRole>;
+  getPetWithHealthSummary(petId: string): Promise<PetWithHealthSummary | null>;
+  findCareRelation(petId: string, userId: string): Promise<{ status: string } | null>;
 
   findActiveFeeding(petId: string): Promise<{ id: string } | null>;
   closeFeeding(recordId: string, endsAt: Date): Promise<void>;

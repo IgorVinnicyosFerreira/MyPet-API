@@ -97,6 +97,232 @@ describe('Pets contracts', () => {
     );
   });
 
+  describe('GET /v1/pets/:petId', () => {
+    it('returns 200 with pet data and healthSummary for the primary tutor', async () => {
+      const session = await createAuthSession(app);
+
+      const petResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Mel',
+          species: 'Canine',
+          breed: 'Golden',
+        },
+      });
+
+      const pet = petResponse.json() as { id: string };
+
+      await injectJson(app, {
+        method: 'POST',
+        url: `/v1/pets/${pet.id}/weights`,
+        headers: bearer(session.token),
+        payload: {
+          weightGrams: 7800,
+          measuredAt: '2026-03-10T10:00:00.000Z',
+        },
+      });
+
+      await injectJson(app, {
+        method: 'POST',
+        url: `/v1/pets/${pet.id}/vaccinations`,
+        headers: bearer(session.token),
+        payload: {
+          vaccineName: 'V10',
+          appliedAt: '2026-03-11T09:00:00.000Z',
+          vetName: 'Dra. Silva',
+          reminderEnabled: false,
+        },
+      });
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${pet.id}`,
+        headers: bearer(session.token),
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json() as {
+        id: string;
+        name: string;
+        healthSummary: {
+          lastWeight: { weightGrams: number } | null;
+          lastVaccination: { vaccineName: string } | null;
+          lastConsultation: unknown;
+          lastDewormer: unknown;
+          lastAntiparasitic: unknown;
+          lastFeeding: unknown;
+        };
+      };
+
+      expect(body.id).toBe(pet.id);
+      expect(body.name).toBe('Mel');
+      expect(body.healthSummary).toBeDefined();
+      expect(body.healthSummary.lastWeight).not.toBeNull();
+      expect(body.healthSummary.lastWeight?.weightGrams).toBe(7800);
+      expect(body.healthSummary.lastVaccination).not.toBeNull();
+      expect(body.healthSummary.lastVaccination?.vaccineName).toBe('V10');
+      expect(body.healthSummary.lastConsultation).toBeNull();
+      expect(body.healthSummary.lastDewormer).toBeNull();
+      expect(body.healthSummary.lastAntiparasitic).toBeNull();
+      expect(body.healthSummary.lastFeeding).toBeNull();
+    });
+
+    it('returns 403 when user has no relation to the pet', async () => {
+      const owner = await createAuthSession(app);
+      const stranger = await createAuthSession(app);
+
+      const petResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(owner.token),
+        payload: {
+          name: 'Rex',
+          species: 'Canine',
+        },
+      });
+
+      const pet = petResponse.json() as { id: string };
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${pet.id}`,
+        headers: bearer(stranger.token),
+      });
+
+      expect(response.statusCode).toBe(403);
+
+      const body = response.json() as { error: { code: string } };
+      expect(body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('returns 404 when petId does not exist', async () => {
+      const session = await createAuthSession(app);
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: '/v1/pets/00000000-0000-0000-0000-000000000000',
+        headers: bearer(session.token),
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const body = response.json() as { error: { code: string } };
+      expect(body.error.code).toBe('RESOURCE_NOT_FOUND');
+    });
+
+    it('returns 400 when petId is not a valid UUID', async () => {
+      const session = await createAuthSession(app);
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: '/v1/pets/not-a-uuid',
+        headers: bearer(session.token),
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('returns 200 with all healthSummary fields null for a pet with no records', async () => {
+      const session = await createAuthSession(app);
+
+      const petResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Pipoca',
+          species: 'Feline',
+        },
+      });
+
+      const pet = petResponse.json() as { id: string };
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${pet.id}`,
+        headers: bearer(session.token),
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json() as {
+        healthSummary: {
+          lastWeight: unknown;
+          lastVaccination: unknown;
+          lastConsultation: unknown;
+          lastDewormer: unknown;
+          lastAntiparasitic: unknown;
+          lastFeeding: unknown;
+        };
+      };
+
+      expect(body.healthSummary.lastWeight).toBeNull();
+      expect(body.healthSummary.lastVaccination).toBeNull();
+      expect(body.healthSummary.lastConsultation).toBeNull();
+      expect(body.healthSummary.lastDewormer).toBeNull();
+      expect(body.healthSummary.lastAntiparasitic).toBeNull();
+      expect(body.healthSummary.lastFeeding).toBeNull();
+    });
+
+    it('returns only the most recent record per category with partial records', async () => {
+      const session = await createAuthSession(app);
+
+      const petResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Bolt',
+          species: 'Canine',
+        },
+      });
+
+      const pet = petResponse.json() as { id: string };
+
+      await injectJson(app, {
+        method: 'POST',
+        url: `/v1/pets/${pet.id}/weights`,
+        headers: bearer(session.token),
+        payload: {
+          weightGrams: 3000,
+          measuredAt: '2026-01-01T10:00:00.000Z',
+        },
+      });
+
+      await injectJson(app, {
+        method: 'POST',
+        url: `/v1/pets/${pet.id}/weights`,
+        headers: bearer(session.token),
+        payload: {
+          weightGrams: 4500,
+          measuredAt: '2026-03-01T10:00:00.000Z',
+        },
+      });
+
+      const response = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${pet.id}`,
+        headers: bearer(session.token),
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json() as {
+        healthSummary: {
+          lastWeight: { weightGrams: number } | null;
+          lastVaccination: unknown;
+        };
+      };
+
+      expect(body.healthSummary.lastWeight).not.toBeNull();
+      expect(body.healthSummary.lastWeight?.weightGrams).toBe(4500);
+      expect(body.healthSummary.lastVaccination).toBeNull();
+    });
+  });
+
   it('returns 409 envelope for stale version on clinical update', async () => {
     const session = await createAuthSession(app);
 

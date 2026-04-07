@@ -8,6 +8,7 @@ import type {
   ExamInput,
   FeedingRecordInput,
   PetCreateInput,
+  PetWithHealthSummary,
   SanitaryRecordInput,
   VaccinationInput,
   WeightRecordInput,
@@ -61,6 +62,24 @@ export class PetsService {
     }
 
     return role;
+  }
+
+  async getPetById(petId: string, userId: string): Promise<PetWithHealthSummary> {
+    const pet = await this.petsRepository.getPetWithHealthSummary(petId);
+
+    if (!pet) {
+      throw new HttpError(404, 'RESOURCE_NOT_FOUND', 'Pet not found');
+    }
+
+    if (pet.primaryTutorId !== userId) {
+      const relation = await this.petsRepository.findCareRelation(petId, userId);
+
+      if (!relation || relation.status !== 'ACTIVE') {
+        throw new HttpError(403, 'FORBIDDEN', 'You do not have access to this pet');
+      }
+    }
+
+    return pet;
   }
 
   async createPet(userId: string, input: PetCreateInput) {

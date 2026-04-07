@@ -4,6 +4,35 @@ import type { IFilesRepository } from '@/modules/v1/files/repositories/files-int
 import { PetsService } from '@/modules/v1/pets/pets.service';
 import type { IPetsRepository } from '@/modules/v1/pets/repositories/pets-interfaces.repository';
 
+const defaultPetWithHealthSummary = {
+  id: 'pet-1',
+  name: 'Luna',
+  species: 'Canine',
+  breed: null,
+  birthDate: null,
+  sex: null,
+  notes: null,
+  primaryTutorId: 'user-1',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  healthSummary: {
+    lastWeight: {
+      id: 'weight-1',
+      weightGrams: 8500,
+      measuredAt: new Date('2026-01-01T10:00:00Z'),
+      note: null,
+      version: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    lastVaccination: null,
+    lastConsultation: null,
+    lastDewormer: null,
+    lastAntiparasitic: null,
+    lastFeeding: null,
+  },
+};
+
 function makePetsRepositoryMock(overrides?: Partial<IPetsRepository>): IPetsRepository {
   return {
     createPet: async () => ({}) as never,
@@ -21,6 +50,8 @@ function makePetsRepositoryMock(overrides?: Partial<IPetsRepository>): IPetsRepo
       updatedAt: new Date(),
     }),
     resolveUserRoleForPet: async () => 'PRIMARY_TUTOR',
+    getPetWithHealthSummary: async () => ({ ...defaultPetWithHealthSummary }),
+    findCareRelation: async () => null,
     findActiveFeeding: async () => null,
     closeFeeding: async () => undefined,
     createFeeding: async () => ({ id: 'feeding-1' }),
@@ -98,6 +129,138 @@ describe('PetsService', () => {
         endsAt: startsAt,
       },
     ]);
+  });
+
+  describe('getPetById', () => {
+    it('grants access to the primary tutor and returns PetWithHealthSummary', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock(),
+        makeFilesRepositoryMock(),
+      );
+
+      const result = await service.getPetById('pet-1', 'user-1');
+
+      expect(result.id).toBe('pet-1');
+      expect(result.healthSummary).toBeDefined();
+      expect(result.healthSummary.lastWeight).not.toBeNull();
+    });
+
+    it('grants access to user with ACTIVE care relation', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => ({
+            ...defaultPetWithHealthSummary,
+            primaryTutorId: 'other-user',
+          }),
+          findCareRelation: async () => ({ status: 'ACTIVE' }),
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      const result = await service.getPetById('pet-1', 'user-1');
+
+      expect(result.id).toBe('pet-1');
+    });
+
+    it('denies access (403) for user with no relation', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => ({
+            ...defaultPetWithHealthSummary,
+            primaryTutorId: 'other-user',
+          }),
+          findCareRelation: async () => null,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(service.getPetById('pet-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('denies access (403) for care relation with status REVOKED', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => ({
+            ...defaultPetWithHealthSummary,
+            primaryTutorId: 'other-user',
+          }),
+          findCareRelation: async () => ({ status: 'REVOKED' }),
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(service.getPetById('pet-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('denies access (403) for care relation with status PENDING', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => ({
+            ...defaultPetWithHealthSummary,
+            primaryTutorId: 'other-user',
+          }),
+          findCareRelation: async () => ({ status: 'PENDING' }),
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(service.getPetById('pet-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('returns 404 when pet does not exist', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => null,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(
+        service.getPetById('pet-nonexistent', 'user-1'),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'RESOURCE_NOT_FOUND',
+      });
+    });
+
+    it('returns null for health categories without records', async () => {
+      const emptyHealthSummary = {
+        ...defaultPetWithHealthSummary,
+        healthSummary: {
+          lastWeight: null,
+          lastVaccination: null,
+          lastConsultation: null,
+          lastDewormer: null,
+          lastAntiparasitic: null,
+          lastFeeding: null,
+        },
+      };
+
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          getPetWithHealthSummary: async () => emptyHealthSummary,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      const result = await service.getPetById('pet-1', 'user-1');
+
+      expect(result.healthSummary.lastWeight).toBeNull();
+      expect(result.healthSummary.lastVaccination).toBeNull();
+      expect(result.healthSummary.lastConsultation).toBeNull();
+      expect(result.healthSummary.lastDewormer).toBeNull();
+      expect(result.healthSummary.lastAntiparasitic).toBeNull();
+      expect(result.healthSummary.lastFeeding).toBeNull();
+    });
   });
 
   it('returns 409 when optimistic lock update fails', async () => {
