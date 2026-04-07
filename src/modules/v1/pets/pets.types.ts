@@ -87,3 +87,77 @@ export type HistoryItem = {
   version: number;
   payload: Record<string, unknown>;
 };
+
+export type WeightRecordSummary = {
+  id: string;
+  weightGrams: number;
+  measuredAt: Date;
+  note: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type VaccinationSummary = {
+  id: string;
+  vaccineName: string;
+  appliedAt: Date;
+  vetName: string;
+  nextDoseAt: Date | null;
+  reminderEnabled: boolean;
+  nextDoseReminderAt: Date | null;
+  notes: string | null;
+  fileId: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ConsultationSummary = {
+  id: string;
+  occurredAt: Date;
+  clinicName: string | null;
+  vetName: string | null;
+  notes: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SanitaryRecordSummary = {
+  id: string;
+  category: 'DEWORMER' | 'ANTIPARASITIC';
+  productName: string;
+  appliedAt: Date;
+  nextApplicationAt: Date | null;
+  reminderEnabled: boolean;
+  notes: string | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FeedingRecordSummary = {
+  id: string;
+  type: 'FEED' | 'NATURAL' | 'MIXED' | 'OTHER';
+  description: string;
+  startsAt: Date;
+  endsAt: Date | null;
+  isActive: boolean;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type HealthSummary = {
+  lastWeight: WeightRecordSummary | null;
+  lastVaccination: VaccinationSummary | null;
+  lastConsultation: ConsultationSummary | null;
+  lastDewormer: SanitaryRecordSummary | null;
+  lastAntiparasitic: SanitaryRecordSummary | null;
+  lastFeeding: FeedingRecordSummary | null;
+};
+
+export type PetWithHealthSummary = Pet & {
+  healthSummary: HealthSummary;
+};

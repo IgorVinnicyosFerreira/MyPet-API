@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@/lib/prisma';
+import type { PetWithHealthSummary } from '../pets.types';
 import type { IPetsRepository, PetRole } from './pets-interfaces.repository';
 
 export class PrismaPetsRepository implements IPetsRepository {
@@ -95,6 +96,130 @@ export class PrismaPetsRepository implements IPetsRepository {
     }
 
     return relation.role;
+  }
+
+  async getPetWithHealthSummary(petId: string): Promise<PetWithHealthSummary | null> {
+    const pet = await this.prisma.pets.findUnique({
+      where: { id: petId },
+      include: {
+        WeightRecords: {
+          orderBy: { measuredAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            weightGrams: true,
+            measuredAt: true,
+            note: true,
+            version: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        Vaccinations: {
+          orderBy: { appliedAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            vaccineName: true,
+            appliedAt: true,
+            vetName: true,
+            nextDoseAt: true,
+            reminderEnabled: true,
+            nextDoseReminderAt: true,
+            notes: true,
+            fileId: true,
+            version: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        Consultations: {
+          orderBy: { occurredAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            occurredAt: true,
+            clinicName: true,
+            vetName: true,
+            notes: true,
+            version: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        SanitaryRecords: {
+          orderBy: { appliedAt: 'desc' },
+          select: {
+            id: true,
+            category: true,
+            productName: true,
+            appliedAt: true,
+            nextApplicationAt: true,
+            reminderEnabled: true,
+            notes: true,
+            version: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        FeedingRecords: {
+          orderBy: { startsAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            type: true,
+            description: true,
+            startsAt: true,
+            endsAt: true,
+            isActive: true,
+            version: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!pet) {
+      return null;
+    }
+
+    const dewormers = pet.SanitaryRecords.filter((r) => r.category === 'DEWORMER');
+    const antiparasitics = pet.SanitaryRecords.filter(
+      (r) => r.category === 'ANTIPARASITIC',
+    );
+
+    return {
+      id: pet.id,
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      birthDate: pet.birthDate,
+      sex: pet.sex,
+      notes: pet.notes,
+      primaryTutorId: pet.primaryTutorId,
+      createdAt: pet.createdAt,
+      updatedAt: pet.updatedAt,
+      healthSummary: {
+        lastWeight: pet.WeightRecords[0] ?? null,
+        lastVaccination: pet.Vaccinations[0] ?? null,
+        lastConsultation: pet.Consultations[0] ?? null,
+        lastDewormer: dewormers[0] ?? null,
+        lastAntiparasitic: antiparasitics[0] ?? null,
+        lastFeeding: pet.FeedingRecords[0] ?? null,
+      },
+    };
+  }
+
+  async findCareRelation(petId: string, userId: string) {
+    return this.prisma.careRelations.findUnique({
+      where: {
+        petId_userId: { petId, userId },
+      },
+      select: {
+        status: true,
+      },
+    });
   }
 
   async findActiveFeeding(petId: string) {

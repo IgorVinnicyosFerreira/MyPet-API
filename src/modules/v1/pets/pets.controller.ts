@@ -15,6 +15,13 @@ import type {
 export class PetsController {
   constructor(private readonly service: PetsService) {}
 
+  async getPetById(req: FastifyRequest, reply: FastifyReply) {
+    const params = req.params as { petId: string };
+    const pet = await this.service.getPetById(params.petId, req.user.sub);
+
+    return reply.status(200).send(pet);
+  }
+
   async createPet(req: FastifyRequest, reply: FastifyReply) {
     const pet = await this.service.createPet(req.user.sub, req.body as PetCreateInput);
 

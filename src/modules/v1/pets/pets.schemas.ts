@@ -106,15 +106,114 @@ const clinicalRecordSchema = z.object({
   payload: z.record(z.string(), z.unknown()),
 });
 
+const petByIdParamSchema = z.object({
+  petId: z.string().check(z.uuid()),
+});
+
+const healthSummaryWeightSchema = z.nullable(
+  z.object({
+    id: z.string(),
+    weightGrams: z.number(),
+    measuredAt: z.coerce.date(),
+    note: z.nullable(z.string()),
+    version: z.number(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+);
+
+const healthSummaryVaccinationSchema = z.nullable(
+  z.object({
+    id: z.string(),
+    vaccineName: z.string(),
+    appliedAt: z.coerce.date(),
+    vetName: z.string(),
+    nextDoseAt: z.nullable(z.coerce.date()),
+    reminderEnabled: z.boolean(),
+    nextDoseReminderAt: z.nullable(z.coerce.date()),
+    notes: z.nullable(z.string()),
+    fileId: z.nullable(z.string()),
+    version: z.number(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+);
+
+const healthSummaryConsultationSchema = z.nullable(
+  z.object({
+    id: z.string(),
+    occurredAt: z.coerce.date(),
+    clinicName: z.nullable(z.string()),
+    vetName: z.nullable(z.string()),
+    notes: z.nullable(z.string()),
+    version: z.number(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+);
+
+const healthSummarySanitarySchema = z.nullable(
+  z.object({
+    id: z.string(),
+    category: z.enum(['DEWORMER', 'ANTIPARASITIC']),
+    productName: z.string(),
+    appliedAt: z.coerce.date(),
+    nextApplicationAt: z.nullable(z.coerce.date()),
+    reminderEnabled: z.boolean(),
+    notes: z.nullable(z.string()),
+    version: z.number(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+);
+
+const healthSummaryFeedingSchema = z.nullable(
+  z.object({
+    id: z.string(),
+    type: z.enum(['FEED', 'NATURAL', 'MIXED', 'OTHER']),
+    description: z.string(),
+    startsAt: z.coerce.date(),
+    endsAt: z.nullable(z.coerce.date()),
+    isActive: z.boolean(),
+    version: z.number(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+);
+
+const petWithHealthSummarySchema = z.object({
+  ...petSchema.shape,
+  healthSummary: z.object({
+    lastWeight: healthSummaryWeightSchema,
+    lastVaccination: healthSummaryVaccinationSchema,
+    lastConsultation: healthSummaryConsultationSchema,
+    lastDewormer: healthSummarySanitarySchema,
+    lastAntiparasitic: healthSummarySanitarySchema,
+    lastFeeding: healthSummaryFeedingSchema,
+  }),
+});
+
+const errorResponseSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.record(z.string(), z.unknown()),
+    traceId: z.string(),
+  }),
+});
+
 export {
   clinicalRecordSchema,
   clinicalRecordUpdateBodySchema,
   consultationBodySchema,
+  errorResponseSchema,
   examBodySchema,
   feedingBodySchema,
+  petByIdParamSchema,
   petCreateBodySchema,
   petIdParamSchema,
   petSchema,
+  petWithHealthSummarySchema,
   recordTypeParamSchema,
   sanitaryBodySchema,
   vaccinationBodySchema,
