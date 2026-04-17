@@ -7,15 +7,24 @@ import type {
   ConsultationInput,
   ExamInput,
   FeedingRecordInput,
+  Pet,
   PetCreateInput,
+  PetPatchPersistenceInput,
   PetWithHealthSummary,
   SanitaryRecordInput,
+  UpdatePetByIdInput,
   VaccinationInput,
   WeightRecordInput,
 } from './pets.types';
 import type { IPetsRepository } from './repositories/pets-interfaces.repository';
 
 const CLINICAL_WRITER_ROLES = new Set(['PRIMARY_TUTOR', 'CO_TUTOR']);
+const PET_UPDATE_CONTEXT = 'pets.updateById';
+
+type PatchLogger = {
+  info: (obj: Record<string, unknown>, msg?: string) => void;
+  warn: (obj: Record<string, unknown>, msg?: string) => void;
+};
 
 function toDate(value: unknown): Date | undefined {
   if (value instanceof Date) {
@@ -88,6 +97,113 @@ export class PetsService {
 
   async listPets(userId: string) {
     return this.petsRepository.listByResponsibleUser(userId);
+  }
+
+  private buildPetPatchPersistenceData(
+    input: UpdatePetByIdInput,
+  ): PetPatchPersistenceInput['data'] {
+    const data: PetPatchPersistenceInput['data'] = {};
+
+    if (typeof input.name !== 'undefined') {
+      data.name = input.name;
+    }
+
+    if (typeof input.species !== 'undefined') {
+      data.species = input.species;
+    }
+
+    if (typeof input.breed !== 'undefined') {
+      data.breed = input.breed;
+    }
+
+    if (typeof input.birthDate !== 'undefined') {
+      data.birthDate = input.birthDate;
+    }
+
+    if (typeof input.sex !== 'undefined') {
+      data.sex = input.sex;
+    }
+
+    if (typeof input.observations !== 'undefined') {
+      data.notes = input.observations;
+    }
+
+    return data;
+  }
+
+  async updatePetById(
+    petId: string,
+    userId: string,
+    input: UpdatePetByIdInput,
+    context?: {
+      traceId?: string;
+      log?: PatchLogger;
+    },
+  ): Promise<Pet> {
+    const traceId = context?.traceId || 'unknown';
+    const pet = await this.petsRepository.findPetById(petId);
+
+    if (!pet) {
+      context?.log?.warn(
+        {
+          context: PET_UPDATE_CONTEXT,
+          traceId,
+          petId,
+          actorUserId: userId,
+        },
+        'Patch update denied: pet not found',
+      );
+      throw new HttpError(404, 'RESOURCE_NOT_FOUND', 'Pet not found');
+    }
+
+    if (pet.primaryTutorId !== userId) {
+      const relation = await this.petsRepository.findCareRelation(petId, userId);
+
+      if (!relation || relation.status !== 'ACTIVE') {
+        context?.log?.warn(
+          {
+            context: PET_UPDATE_CONTEXT,
+            traceId,
+            petId,
+            actorUserId: userId,
+          },
+          'Patch update denied: actor has no permission',
+        );
+        throw new HttpError(403, 'FORBIDDEN', 'You do not have access to this pet');
+      }
+    }
+
+    const data = this.buildPetPatchPersistenceData(input);
+
+    if (!Object.keys(data).length) {
+      throw new HttpError(
+        400,
+        'BAD_REQUEST',
+        'At least one field is required for patch update',
+      );
+    }
+
+    const updatedPet = await this.petsRepository.updatePetByIdOptimistic({
+      petId,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+      data,
+    });
+
+    if (!updatedPet) {
+      throw new HttpError(409, 'CONFLICT', 'Pet update conflict');
+    }
+
+    context?.log?.info(
+      {
+        context: PET_UPDATE_CONTEXT,
+        traceId,
+        petId,
+        actorUserId: userId,
+      },
+      'Patch update completed',
+    );
+
+    return updatedPet;
   }
 
   async createFeeding(petId: string, userId: string, input: FeedingRecordInput) {
