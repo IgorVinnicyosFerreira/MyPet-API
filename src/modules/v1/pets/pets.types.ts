@@ -20,6 +20,29 @@ export type PetCreateInput = {
   notes?: string;
 };
 
+export type UpdatePetByIdInput = {
+  expectedUpdatedAt: Date;
+  name?: string;
+  species?: string;
+  breed?: string | null;
+  birthDate?: Date | null;
+  sex?: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
+  observations?: string | null;
+};
+
+export type PetPatchPersistenceInput = {
+  petId: string;
+  expectedUpdatedAt: Date;
+  data: {
+    name?: string;
+    species?: string;
+    breed?: string | null;
+    birthDate?: Date | null;
+    sex?: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
+    notes?: string | null;
+  };
+};
+
 export type FeedingRecordInput = {
   type: 'FEED' | 'NATURAL' | 'MIXED' | 'OTHER';
   description: string;

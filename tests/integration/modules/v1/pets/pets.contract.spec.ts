@@ -323,6 +323,180 @@ describe('Pets contracts', () => {
     });
   });
 
+  describe('PATCH /v1/pets/:petId', () => {
+    it('returns 200 and preserves omitted fields on partial update', async () => {
+      const session = await createAuthSession(app);
+
+      const createResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Luna',
+          species: 'Canine',
+          breed: 'SRD',
+          notes: 'Sem observacoes',
+        },
+      });
+
+      const created = createResponse.json() as {
+        id: string;
+        species: string;
+        breed: string | null;
+        updatedAt: string;
+      };
+
+      const patchResponse = await injectJson(app, {
+        method: 'PATCH',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(session.token),
+        payload: {
+          name: 'Luna Atualizada',
+          observations: 'Alergica a frango',
+          expectedUpdatedAt: created.updatedAt,
+        },
+      });
+
+      expect(patchResponse.statusCode).toBe(200);
+
+      const body = patchResponse.json() as {
+        id: string;
+        name: string;
+        species: string;
+        breed: string | null;
+        notes: string | null;
+        updatedAt: string;
+      };
+
+      expect(body.id).toBe(created.id);
+      expect(body.name).toBe('Luna Atualizada');
+      expect(body.notes).toBe('Alergica a frango');
+      expect(body.species).toBe(created.species);
+      expect(body.breed).toBe(created.breed);
+      expect(new Date(body.updatedAt).getTime()).toBeGreaterThan(
+        new Date(created.updatedAt).getTime(),
+      );
+    });
+
+    it('returns 409 when expectedUpdatedAt is stale', async () => {
+      const session = await createAuthSession(app);
+
+      const createResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Nina',
+          species: 'Canine',
+        },
+      });
+
+      const created = createResponse.json() as { id: string; updatedAt: string };
+
+      await injectJson(app, {
+        method: 'PATCH',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(session.token),
+        payload: {
+          species: 'Feline',
+          expectedUpdatedAt: created.updatedAt,
+        },
+      });
+
+      const staleResponse = await injectJson(app, {
+        method: 'PATCH',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(session.token),
+        payload: {
+          name: 'Outro Nome',
+          expectedUpdatedAt: created.updatedAt,
+        },
+      });
+
+      expect(staleResponse.statusCode).toBe(409);
+
+      const body = staleResponse.json() as {
+        error: { code: string; traceId: string };
+      };
+
+      expect(body.error.code).toBe('CONFLICT');
+      expect(body.error.traceId).toBeString();
+    });
+
+    it('returns 403 and does not mutate pet for unrelated user', async () => {
+      const owner = await createAuthSession(app);
+      const stranger = await createAuthSession(app);
+
+      const createResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(owner.token),
+        payload: {
+          name: 'Rex',
+          species: 'Canine',
+        },
+      });
+
+      const created = createResponse.json() as {
+        id: string;
+        updatedAt: string;
+      };
+
+      const forbiddenResponse = await injectJson(app, {
+        method: 'PATCH',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(stranger.token),
+        payload: {
+          name: 'Nome Invalido',
+          expectedUpdatedAt: created.updatedAt,
+        },
+      });
+
+      expect(forbiddenResponse.statusCode).toBe(403);
+
+      const forbiddenBody = forbiddenResponse.json() as {
+        error: { code: string; traceId: string };
+      };
+
+      expect(forbiddenBody.error.code).toBe('FORBIDDEN');
+      expect(forbiddenBody.error.traceId).toBeString();
+
+      const ownerView = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(owner.token),
+      });
+
+      expect(ownerView.statusCode).toBe(200);
+
+      const ownerPet = ownerView.json() as { name: string };
+      expect(ownerPet.name).toBe('Rex');
+    });
+
+    it('returns 404 envelope for nonexistent pet', async () => {
+      const session = await createAuthSession(app);
+
+      const response = await injectJson(app, {
+        method: 'PATCH',
+        url: '/v1/pets/00000000-0000-0000-0000-000000000000',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Nao Deve Atualizar',
+          expectedUpdatedAt: '2026-04-07T12:30:00.000Z',
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const body = response.json() as {
+        error: { code: string; traceId: string };
+      };
+
+      expect(body.error.code).toBe('RESOURCE_NOT_FOUND');
+      expect(body.error.traceId).toBeString();
+    });
+  });
+
   it('returns 409 envelope for stale version on clinical update', async () => {
     const session = await createAuthSession(app);
 

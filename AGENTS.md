@@ -180,6 +180,8 @@ Agent pode seguir sem confirmacao previa para:
 - Node.js + TypeScript (runtime), Bun 1.x (automated test runner) + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, `@fastify/swagger`, `@scalar/fastify-api-reference` (001-gerenciar-historico-pets)
 - PostgreSQL (via Prisma ORM) + local file storage in `/Volumes/SSD Externo/Projects/MyPet/storage` behind `StorageProvider` interface (001-gerenciar-historico-pets)
 - Node.js + TypeScript (runtime), Bun 1.x (automated test runner) + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, custom JWT middleware (`src/lib/auth/jwt.ts`) (002-secure-user-management)
+- Node.js + TypeScript + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL (004-update-pet-by-id)
+- PostgreSQL (via Prisma ORM), tabela `Pets` existente com `updatedAt` para token de concorrencia otimista (004-update-pet-by-id)
 
 ## Recent Changes
 - 001-gerenciar-historico-pets: Added Node.js + TypeScript (runtime), Bun 1.x (automated test runner) + Fastify, Zod (`fastify-type-provider-zod`), Prisma, PostgreSQL, `@fastify/swagger`, `@scalar/fastify-api-reference`

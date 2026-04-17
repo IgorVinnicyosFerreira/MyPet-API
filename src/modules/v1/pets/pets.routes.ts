@@ -12,6 +12,8 @@ import {
   petCreateBodySchema,
   petIdParamSchema,
   petSchema,
+  petUpdateBodySchema,
+  petUpdateParamSchema,
   petWithHealthSummarySchema,
   recordTypeParamSchema,
   sanitaryBodySchema,
@@ -63,6 +65,25 @@ const petsRoutes: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     (req, reply) => makePetsController().getPetById(req, reply),
+  );
+
+  fastify.patch(
+    '/:petId',
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: petUpdateParamSchema,
+        body: petUpdateBodySchema,
+        response: {
+          200: petSchema,
+          400: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+      },
+    },
+    (req, reply) => makePetsController().updatePetById(req, reply),
   );
 
   fastify.post(

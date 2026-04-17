@@ -1,5 +1,9 @@
 import type { PrismaClient } from '@/lib/prisma';
-import type { PetWithHealthSummary } from '../pets.types';
+import type {
+  Pet,
+  PetPatchPersistenceInput,
+  PetWithHealthSummary,
+} from '../pets.types';
 import type { IPetsRepository, PetRole } from './pets-interfaces.repository';
 
 export class PrismaPetsRepository implements IPetsRepository {
@@ -66,6 +70,52 @@ export class PrismaPetsRepository implements IPetsRepository {
   async findPetById(petId: string) {
     return this.prisma.pets.findUnique({
       where: { id: petId },
+    });
+  }
+
+  async updatePetByIdOptimistic(input: PetPatchPersistenceInput): Promise<Pet | null> {
+    const data: PetPatchPersistenceInput['data'] = {};
+
+    if (typeof input.data.name !== 'undefined') {
+      data.name = input.data.name;
+    }
+
+    if (typeof input.data.species !== 'undefined') {
+      data.species = input.data.species;
+    }
+
+    if (typeof input.data.breed !== 'undefined') {
+      data.breed = input.data.breed;
+    }
+
+    if (typeof input.data.birthDate !== 'undefined') {
+      data.birthDate = input.data.birthDate;
+    }
+
+    if (typeof input.data.sex !== 'undefined') {
+      data.sex = input.data.sex;
+    }
+
+    if (typeof input.data.notes !== 'undefined') {
+      data.notes = input.data.notes;
+    }
+
+    const result = await this.prisma.pets.updateMany({
+      where: {
+        id: input.petId,
+        updatedAt: input.expectedUpdatedAt,
+      },
+      data,
+    });
+
+    if (!result.count) {
+      return null;
+    }
+
+    return this.prisma.pets.findUnique({
+      where: {
+        id: input.petId,
+      },
     });
   }
 

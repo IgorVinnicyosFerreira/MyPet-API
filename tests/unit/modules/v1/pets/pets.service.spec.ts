@@ -49,6 +49,18 @@ function makePetsRepositoryMock(overrides?: Partial<IPetsRepository>): IPetsRepo
       createdAt: new Date(),
       updatedAt: new Date(),
     }),
+    updatePetByIdOptimistic: async (input) => ({
+      id: input.petId,
+      name: input.data.name ?? 'Luna',
+      species: input.data.species ?? 'Canine',
+      breed: input.data.breed ?? null,
+      birthDate: input.data.birthDate ?? null,
+      sex: input.data.sex ?? null,
+      notes: input.data.notes ?? null,
+      primaryTutorId: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
     resolveUserRoleForPet: async () => 'PRIMARY_TUTOR',
     getPetWithHealthSummary: async () => ({ ...defaultPetWithHealthSummary }),
     findCareRelation: async () => null,
@@ -82,6 +94,131 @@ function makeFilesRepositoryMock(
 }
 
 describe('PetsService', () => {
+  describe('updatePetById', () => {
+    it('updates allowed fields and maps observations to notes', async () => {
+      const calls: Array<{
+        petId: string;
+        expectedUpdatedAt: Date;
+        data: Record<string, unknown>;
+      }> = [];
+      const expectedUpdatedAt = new Date('2026-04-07T12:30:00.000Z');
+
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          updatePetByIdOptimistic: async (input) => {
+            calls.push({
+              petId: input.petId,
+              expectedUpdatedAt: input.expectedUpdatedAt,
+              data: input.data,
+            });
+
+            return {
+              id: input.petId,
+              name: 'Luna Atualizada',
+              species: 'Canine',
+              breed: null,
+              birthDate: null,
+              sex: null,
+              notes: 'Alergica a frango',
+              primaryTutorId: 'user-1',
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-07T12:31:00.000Z'),
+            };
+          },
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      const result = await service.updatePetById('pet-1', 'user-1', {
+        expectedUpdatedAt,
+        name: 'Luna Atualizada',
+        observations: 'Alergica a frango',
+      });
+
+      expect(result.name).toBe('Luna Atualizada');
+      expect(result.notes).toBe('Alergica a frango');
+      expect(calls).toEqual([
+        {
+          petId: 'pet-1',
+          expectedUpdatedAt,
+          data: {
+            name: 'Luna Atualizada',
+            notes: 'Alergica a frango',
+          },
+        },
+      ]);
+    });
+
+    it('returns 409 for stale expectedUpdatedAt', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          updatePetByIdOptimistic: async () => null,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(
+        service.updatePetById('pet-1', 'user-1', {
+          expectedUpdatedAt: new Date('2026-04-07T12:30:00.000Z'),
+          name: 'Mila',
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'CONFLICT',
+      });
+    });
+
+    it('returns 403 when actor has no relation to the pet', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          findPetById: async () => ({
+            id: 'pet-1',
+            name: 'Luna',
+            species: 'Canine',
+            breed: null,
+            birthDate: null,
+            sex: null,
+            notes: null,
+            primaryTutorId: 'owner-user',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+          findCareRelation: async () => null,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(
+        service.updatePetById('pet-1', 'user-2', {
+          expectedUpdatedAt: new Date('2026-04-07T12:30:00.000Z'),
+          name: 'Novo Nome',
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('returns 404 when pet does not exist', async () => {
+      const service = new PetsService(
+        makePetsRepositoryMock({
+          findPetById: async () => null,
+        }),
+        makeFilesRepositoryMock(),
+      );
+
+      await expect(
+        service.updatePetById('pet-missing', 'user-1', {
+          expectedUpdatedAt: new Date('2026-04-07T12:30:00.000Z'),
+          species: 'Feline',
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'RESOURCE_NOT_FOUND',
+      });
+    });
+  });
+
   it('blocks caregivers from creating clinical records', async () => {
     const service = new PetsService(
       makePetsRepositoryMock({

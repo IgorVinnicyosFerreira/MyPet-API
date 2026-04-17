@@ -110,6 +110,20 @@ const petByIdParamSchema = z.object({
   petId: z.string().check(z.uuid()),
 });
 
+const petUpdateParamSchema = z.object({
+  petId: z.string().check(z.uuid()),
+});
+
+const petUpdateBodySchema = z.strictObject({
+  expectedUpdatedAt: z.coerce.date(),
+  name: z.optional(z.string().check(z.minLength(1), z.maxLength(120))),
+  species: z.optional(z.string().check(z.minLength(1), z.maxLength(60))),
+  breed: z.optional(z.nullable(z.string().check(z.maxLength(80)))),
+  birthDate: z.optional(z.nullable(z.coerce.date())),
+  sex: z.optional(z.nullable(z.enum(['MALE', 'FEMALE', 'UNKNOWN']))),
+  observations: z.optional(z.nullable(z.string().check(z.maxLength(2000)))),
+});
+
 const healthSummaryWeightSchema = z.nullable(
   z.object({
     id: z.string(),
@@ -212,6 +226,8 @@ export {
   petByIdParamSchema,
   petCreateBodySchema,
   petIdParamSchema,
+  petUpdateBodySchema,
+  petUpdateParamSchema,
   petSchema,
   petWithHealthSummarySchema,
   recordTypeParamSchema,

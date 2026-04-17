@@ -8,6 +8,7 @@ import type {
   FeedingRecordInput,
   PetCreateInput,
   SanitaryRecordInput,
+  UpdatePetByIdInput,
   VaccinationInput,
   WeightRecordInput,
 } from './pets.types';
@@ -123,5 +124,17 @@ export class PetsController {
     );
 
     return reply.status(200).send(record);
+  }
+
+  async updatePetById(req: FastifyRequest, reply: FastifyReply) {
+    const params = req.params as { petId: string };
+    const body = req.body as UpdatePetByIdInput;
+
+    const pet = await this.service.updatePetById(params.petId, req.user.sub, body, {
+      traceId: req.id,
+      log: req.log,
+    });
+
+    return reply.status(200).send(pet);
   }
 }
