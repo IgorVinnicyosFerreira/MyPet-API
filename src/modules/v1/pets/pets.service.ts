@@ -10,16 +10,19 @@ import type {
   Pet,
   PetCreateInput,
   PetPatchPersistenceInput,
+  PetSpecies,
   PetWithHealthSummary,
   SanitaryRecordInput,
   UpdatePetByIdInput,
   VaccinationInput,
   WeightRecordInput,
 } from './pets.types';
+import { createPetSpeciesValues } from './pets.types';
 import type { IPetsRepository } from './repositories/pets-interfaces.repository';
 
 const CLINICAL_WRITER_ROLES = new Set(['PRIMARY_TUTOR', 'CO_TUTOR']);
 const PET_UPDATE_CONTEXT = 'pets.updateById';
+const CREATE_PET_ALLOWED_SPECIES = new Set<string>(createPetSpeciesValues);
 
 type PatchLogger = {
   info: (obj: Record<string, unknown>, msg?: string) => void;
@@ -73,6 +76,18 @@ export class PetsService {
     return role;
   }
 
+  private ensureSpeciesAllowed(species: string): PetSpecies {
+    if (!CREATE_PET_ALLOWED_SPECIES.has(species)) {
+      throw new HttpError(
+        400,
+        'BAD_REQUEST',
+        'Invalid species. Allowed values: Canine, Feline',
+      );
+    }
+
+    return species as PetSpecies;
+  }
+
   async getPetById(petId: string, userId: string): Promise<PetWithHealthSummary> {
     const pet = await this.petsRepository.getPetWithHealthSummary(petId);
 
@@ -92,7 +107,12 @@ export class PetsService {
   }
 
   async createPet(userId: string, input: PetCreateInput) {
-    return this.petsRepository.createPet(userId, input);
+    const species = this.ensureSpeciesAllowed(input.species);
+
+    return this.petsRepository.createPet(userId, {
+      ...input,
+      species,
+    });
   }
 
   async listPets(userId: string) {
@@ -109,7 +129,7 @@ export class PetsService {
     }
 
     if (typeof input.species !== 'undefined') {
-      data.species = input.species;
+      data.species = this.ensureSpeciesAllowed(input.species);
     }
 
     if (typeof input.breed !== 'undefined') {

@@ -1,3 +1,7 @@
+export const createPetSpeciesValues = ['Canine', 'Feline'] as const;
+
+export type PetSpecies = (typeof createPetSpeciesValues)[number];
+
 export type Pet = {
   id: string;
   name: string;
@@ -13,7 +17,7 @@ export type Pet = {
 
 export type PetCreateInput = {
   name: string;
-  species: string;
+  species: PetSpecies;
   breed?: string;
   birthDate?: Date;
   sex?: 'MALE' | 'FEMALE' | 'UNKNOWN';
@@ -23,7 +27,7 @@ export type PetCreateInput = {
 export type UpdatePetByIdInput = {
   expectedUpdatedAt: Date;
   name?: string;
-  species?: string;
+  species?: PetSpecies;
   breed?: string | null;
   birthDate?: Date | null;
   sex?: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
@@ -35,7 +39,7 @@ export type PetPatchPersistenceInput = {
   expectedUpdatedAt: Date;
   data: {
     name?: string;
-    species?: string;
+    species?: PetSpecies;
     breed?: string | null;
     birthDate?: Date | null;
     sex?: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;

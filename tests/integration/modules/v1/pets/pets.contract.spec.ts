@@ -1,8 +1,75 @@
 import '../../../../setup/integration.setup';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance } from 'fastify';
+import { prisma } from '@/lib/prisma';
 import { createTestApp } from '../../../../support/app';
 import { bearer, createAuthSession, injectJson } from '../../../../support/http-client';
+
+const canonicalCreatePetPayloadFixture = {
+  Canine: {
+    name: 'Luna',
+    species: 'Canine',
+    breed: 'SRD',
+  },
+  Feline: {
+    name: 'Mia',
+    species: 'Feline',
+    breed: 'Persa',
+  },
+} as const;
+
+const invalidCreatePetPayloadFixture = [
+  {
+    scenario: 'species Bird',
+    payload: {
+      name: 'Piu',
+      species: 'Bird',
+    },
+  },
+  {
+    scenario: 'species lowercase canine',
+    payload: {
+      name: 'Nina',
+      species: 'canine',
+    },
+  },
+  {
+    scenario: 'species empty string',
+    payload: {
+      name: 'Bolt',
+      species: '',
+    },
+  },
+  {
+    scenario: 'species null',
+    payload: {
+      name: 'Thor',
+      species: null,
+    },
+  },
+] as const;
+
+type OpenApiSchema = {
+  $ref?: string;
+  properties?: Record<string, OpenApiSchema>;
+  enum?: string[];
+};
+
+type OpenApiDocument = {
+  components?: {
+    schemas?: Record<string, OpenApiSchema>;
+  };
+  paths?: Record<
+    string,
+    {
+      post?: {
+        requestBody?: {
+          content?: Record<string, { schema?: OpenApiSchema }>;
+        };
+      };
+    }
+  >;
+};
 
 describe('Pets contracts', () => {
   let app: FastifyInstance;
@@ -15,31 +82,130 @@ describe('Pets contracts', () => {
     await app.close();
   });
 
-  it('creates pet through /v1/pets and returns typed payload', async () => {
-    const session = await createAuthSession(app);
+  describe('POST /v1/pets species contract', () => {
+    for (const [species, payload] of Object.entries(canonicalCreatePetPayloadFixture)) {
+      it(`accepts canonical species ${species} and persists the pet`, async () => {
+        const session = await createAuthSession(app);
 
-    const response = await injectJson(app, {
-      method: 'POST',
-      url: '/v1/pets',
-      headers: bearer(session.token),
-      payload: {
-        name: 'Luna',
-        species: 'Canine',
-        breed: 'SRD',
-      },
+        const response = await injectJson(app, {
+          method: 'POST',
+          url: '/v1/pets',
+          headers: bearer(session.token),
+          payload,
+        });
+
+        expect(response.statusCode).toBe(201);
+
+        const body = response.json() as {
+          id: string;
+          name: string;
+          species: string;
+          primaryTutorId: string;
+        };
+
+        expect(body.id).toBeString();
+        expect(body.name).toBe(payload.name);
+        expect(body.species).toBe(species);
+        expect(body.primaryTutorId).toBe(session.user.id);
+
+        const persisted = await prisma.pets.findUnique({
+          where: {
+            id: body.id,
+          },
+        });
+
+        expect(persisted).not.toBeNull();
+        expect(persisted?.species).toBe(species);
+      });
+    }
+
+    for (const { scenario, payload } of invalidCreatePetPayloadFixture) {
+      it(`rejects invalid payload (${scenario}) and does not persist`, async () => {
+        const session = await createAuthSession(app);
+        const beforeCount = await prisma.pets.count({
+          where: {
+            primaryTutorId: session.user.id,
+          },
+        });
+
+        const response = await injectJson(app, {
+          method: 'POST',
+          url: '/v1/pets',
+          headers: bearer(session.token),
+          payload,
+        });
+
+        expect(response.statusCode).toBe(400);
+
+        const body = response.json() as {
+          error: { code: string; traceId: string };
+        };
+
+        expect(body.error.code).toBe('BAD_REQUEST');
+        expect(body.error.traceId).toBeString();
+
+        const afterCount = await prisma.pets.count({
+          where: {
+            primaryTutorId: session.user.id,
+          },
+        });
+
+        expect(afterCount).toBe(beforeCount);
+      });
+    }
+
+    it('rejects mixed-invalid payload variations with BAD_REQUEST', async () => {
+      const session = await createAuthSession(app);
+
+      const mixedInvalidPayloads = [
+        {
+          name: '',
+          species: 'Bird',
+          breed:
+            '123456789012345678901234567890123456789012345678901234567890123456789012345678901',
+        },
+        {
+          name: 'Luna',
+          species: null,
+          notes: 'x'.repeat(2100),
+        },
+        {
+          name: 'Mia',
+          species: 'FELINE',
+          birthDate: 'not-a-date',
+        },
+      ];
+
+      for (const payload of mixedInvalidPayloads) {
+        const response = await injectJson(app, {
+          method: 'POST',
+          url: '/v1/pets',
+          headers: bearer(session.token),
+          payload,
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = response.json() as { error: { code: string } };
+        expect(body.error.code).toBe('BAD_REQUEST');
+      }
     });
 
-    expect(response.statusCode).toBe(201);
+    it('advertises allowed species enum in OpenAPI contract', async () => {
+      const docsResponse = await injectJson(app, {
+        method: 'GET',
+        url: '/docs/openapi.json',
+      });
 
-    const body = response.json() as {
-      id: string;
-      name: string;
-      primaryTutorId: string;
-    };
+      expect(docsResponse.statusCode).toBe(200);
 
-    expect(body.id).toBeString();
-    expect(body.name).toBe('Luna');
-    expect(body.primaryTutorId).toBe(session.user.id);
+      const openapi = docsResponse.json() as OpenApiDocument;
+      const postPets = openapi.paths?.['/v1/pets/']?.post;
+      const speciesEnum =
+        postPets?.requestBody?.content?.['application/json']?.schema?.properties
+          ?.species?.enum;
+
+      expect(speciesEnum).toEqual(['Canine', 'Feline']);
+    });
   });
 
   it('returns consolidated history sorted by event date', async () => {
@@ -421,6 +587,56 @@ describe('Pets contracts', () => {
 
       expect(body.error.code).toBe('CONFLICT');
       expect(body.error.traceId).toBeString();
+    });
+
+    it('returns 400 and keeps persisted species unchanged for invalid species patch', async () => {
+      const session = await createAuthSession(app);
+
+      const createResponse = await injectJson(app, {
+        method: 'POST',
+        url: '/v1/pets',
+        headers: bearer(session.token),
+        payload: {
+          name: 'Nina',
+          species: 'Canine',
+        },
+      });
+
+      const created = createResponse.json() as {
+        id: string;
+        updatedAt: string;
+        species: string;
+      };
+
+      const invalidPatchResponse = await injectJson(app, {
+        method: 'PATCH',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(session.token),
+        payload: {
+          species: 'Bird',
+          expectedUpdatedAt: created.updatedAt,
+        },
+      });
+
+      expect(invalidPatchResponse.statusCode).toBe(400);
+
+      const invalidPatchBody = invalidPatchResponse.json() as {
+        error: { code: string; traceId: string };
+      };
+
+      expect(invalidPatchBody.error.code).toBe('BAD_REQUEST');
+      expect(invalidPatchBody.error.traceId).toBeString();
+
+      const petResponse = await injectJson(app, {
+        method: 'GET',
+        url: `/v1/pets/${created.id}`,
+        headers: bearer(session.token),
+      });
+
+      expect(petResponse.statusCode).toBe(200);
+
+      const petBody = petResponse.json() as { species: string };
+      expect(petBody.species).toBe('Canine');
     });
 
     it('returns 403 and does not mutate pet for unrelated user', async () => {
