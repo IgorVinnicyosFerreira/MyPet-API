@@ -29,9 +29,13 @@ const petsRoutes: FastifyPluginAsyncZod = async (fastify) => {
     {
       preHandler: fastify.authenticate,
       schema: {
+        summary: 'Create pet',
+        description:
+          'Creates a pet for the authenticated tutor. Accepted species: Canine, Feline.',
         body: petCreateBodySchema,
         response: {
           201: petSchema,
+          400: errorResponseSchema,
         },
       },
     },

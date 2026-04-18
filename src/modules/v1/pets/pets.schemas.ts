@@ -1,4 +1,7 @@
 import { z } from 'zod/v4-mini';
+import { createPetSpeciesValues } from './pets.types';
+
+const createPetSpeciesSchema = z.enum(createPetSpeciesValues);
 
 const petSchema = z.object({
   id: z.string(),
@@ -15,7 +18,7 @@ const petSchema = z.object({
 
 const petCreateBodySchema = z.object({
   name: z.string().check(z.minLength(1), z.maxLength(120)),
-  species: z.string().check(z.minLength(1), z.maxLength(60)),
+  species: createPetSpeciesSchema,
   breed: z.optional(z.string().check(z.maxLength(80))),
   birthDate: z.optional(z.coerce.date()),
   sex: z.optional(z.enum(['MALE', 'FEMALE', 'UNKNOWN'])),
@@ -117,7 +120,7 @@ const petUpdateParamSchema = z.object({
 const petUpdateBodySchema = z.strictObject({
   expectedUpdatedAt: z.coerce.date(),
   name: z.optional(z.string().check(z.minLength(1), z.maxLength(120))),
-  species: z.optional(z.string().check(z.minLength(1), z.maxLength(60))),
+  species: z.optional(createPetSpeciesSchema),
   breed: z.optional(z.nullable(z.string().check(z.maxLength(80)))),
   birthDate: z.optional(z.nullable(z.coerce.date())),
   sex: z.optional(z.nullable(z.enum(['MALE', 'FEMALE', 'UNKNOWN']))),
@@ -220,6 +223,7 @@ export {
   clinicalRecordSchema,
   clinicalRecordUpdateBodySchema,
   consultationBodySchema,
+  createPetSpeciesSchema,
   errorResponseSchema,
   examBodySchema,
   feedingBodySchema,

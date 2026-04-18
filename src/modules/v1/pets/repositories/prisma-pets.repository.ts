@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@/lib/prisma';
 import type {
   Pet,
+  PetCreateInput,
   PetPatchPersistenceInput,
   PetWithHealthSummary,
 } from '../pets.types';
@@ -9,17 +10,7 @@ import type { IPetsRepository, PetRole } from './pets-interfaces.repository';
 export class PrismaPetsRepository implements IPetsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async createPet(
-    userId: string,
-    input: {
-      name: string;
-      species: string;
-      breed?: string;
-      birthDate?: Date;
-      sex?: 'MALE' | 'FEMALE' | 'UNKNOWN';
-      notes?: string;
-    },
-  ) {
+  async createPet(userId: string, input: PetCreateInput) {
     return this.prisma.pets.create({
       data: {
         name: input.name,

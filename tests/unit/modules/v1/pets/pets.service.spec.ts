@@ -2,6 +2,7 @@ import '../../../../setup/unit.setup';
 import { describe, expect, it } from 'bun:test';
 import type { IFilesRepository } from '@/modules/v1/files/repositories/files-interfaces.repository';
 import { PetsService } from '@/modules/v1/pets/pets.service';
+import type { PetCreateInput, PetSpecies } from '@/modules/v1/pets/pets.types';
 import type { IPetsRepository } from '@/modules/v1/pets/repositories/pets-interfaces.repository';
 
 const defaultPetWithHealthSummary = {
@@ -32,6 +33,35 @@ const defaultPetWithHealthSummary = {
     lastFeeding: null,
   },
 };
+
+const canonicalCreatePetFixtures: Record<PetSpecies, PetCreateInput> = {
+  Canine: {
+    name: 'Luna',
+    species: 'Canine',
+    breed: 'SRD',
+  },
+  Feline: {
+    name: 'Mia',
+    species: 'Feline',
+    breed: 'Persa',
+  },
+};
+
+const invalidCreatePetSpeciesFixtures = ['Bird', 'canine', ''] as const;
+
+function makeCreatePetInputFixture(species: PetSpecies): PetCreateInput {
+  return {
+    ...canonicalCreatePetFixtures[species],
+  };
+}
+
+function makeInvalidCreatePetInputFixture(species: string): PetCreateInput {
+  return {
+    name: 'Piu',
+    species: species as PetSpecies,
+    breed: 'SRD',
+  };
+}
 
 function makePetsRepositoryMock(overrides?: Partial<IPetsRepository>): IPetsRepository {
   return {
@@ -94,6 +124,72 @@ function makeFilesRepositoryMock(
 }
 
 describe('PetsService', () => {
+  describe('createPet', () => {
+    for (const species of ['Canine', 'Feline'] as const) {
+      it(`accepts canonical species ${species}`, async () => {
+        const calls: Array<{ userId: string; input: PetCreateInput }> = [];
+        const input = makeCreatePetInputFixture(species);
+
+        const service = new PetsService(
+          makePetsRepositoryMock({
+            createPet: async (userId, createInput) => {
+              calls.push({ userId, input: createInput });
+
+              return {
+                id: 'pet-created',
+                name: createInput.name,
+                species: createInput.species,
+                breed: createInput.breed ?? null,
+                birthDate: createInput.birthDate ?? null,
+                sex: createInput.sex ?? null,
+                notes: createInput.notes ?? null,
+                primaryTutorId: userId,
+                createdAt: new Date('2026-04-17T10:00:00.000Z'),
+                updatedAt: new Date('2026-04-17T10:00:00.000Z'),
+              };
+            },
+          }),
+          makeFilesRepositoryMock(),
+        );
+
+        const result = await service.createPet('user-1', input);
+
+        expect(result.species).toBe(species);
+        expect(calls).toEqual([
+          {
+            userId: 'user-1',
+            input,
+          },
+        ]);
+      });
+    }
+
+    it('rejects invalid species and does not call repository create', async () => {
+      for (const species of invalidCreatePetSpeciesFixtures) {
+        let repositoryCalled = false;
+
+        const service = new PetsService(
+          makePetsRepositoryMock({
+            createPet: async () => {
+              repositoryCalled = true;
+              return {} as never;
+            },
+          }),
+          makeFilesRepositoryMock(),
+        );
+
+        await expect(
+          service.createPet('user-1', makeInvalidCreatePetInputFixture(species)),
+        ).rejects.toMatchObject({
+          statusCode: 400,
+          code: 'BAD_REQUEST',
+        });
+
+        expect(repositoryCalled).toBe(false);
+      }
+    });
+  });
+
   describe('updatePetById', () => {
     it('updates allowed fields and maps observations to notes', async () => {
       const calls: Array<{
@@ -216,6 +312,34 @@ describe('PetsService', () => {
         statusCode: 404,
         code: 'RESOURCE_NOT_FOUND',
       });
+    });
+
+    it('rejects invalid species updates and does not call repository persistence', async () => {
+      for (const species of ['Bird', 'canine', ''] as const) {
+        let repositoryCalled = false;
+
+        const service = new PetsService(
+          makePetsRepositoryMock({
+            updatePetByIdOptimistic: async () => {
+              repositoryCalled = true;
+              return {} as never;
+            },
+          }),
+          makeFilesRepositoryMock(),
+        );
+
+        await expect(
+          service.updatePetById('pet-1', 'user-1', {
+            expectedUpdatedAt: new Date('2026-04-07T12:30:00.000Z'),
+            species: species as PetSpecies,
+          }),
+        ).rejects.toMatchObject({
+          statusCode: 400,
+          code: 'BAD_REQUEST',
+        });
+
+        expect(repositoryCalled).toBe(false);
+      }
     });
   });
 
